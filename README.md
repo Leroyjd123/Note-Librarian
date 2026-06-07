@@ -2,6 +2,8 @@
 
 A small, friendly full-stack app that tidies your **JW Library** personal study notes. Export your notes to Excel (`.xlsx`), upload, and an AI model **you** choose — Claude, Gemini, or OpenAI — organises them with your own API key.
 
+![Note Librarian screenshot](docs/screenshot.png)
+
 It classifies each note, gives it a searchable **title**, assigns a meaning-based **colour**, builds layered **tags**, and cleans up **note text** — while editing **only** those four columns and preserving the rest of the workbook (formatting, hyperlinks, every other cell) **byte-for-byte**.
 
 ---
@@ -125,3 +127,9 @@ pytest -q
 - Jobs are kept in memory, so a server restart clears job history (your downloaded files are unaffected). Fine for single-user local use.
 - Very large batches can hit a model's output limit; if a batch's JSON can't be parsed, the engine automatically splits it and retries, and only ever leaves a note **unchanged** (never corrupts it) as a last resort — such rows appear under **Warnings**.
 - Processed files and backups are written under `data/` (git-ignored).
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Leroy Dsouza
