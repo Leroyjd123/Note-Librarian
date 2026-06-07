@@ -76,6 +76,10 @@ input:focus, select:focus { outline: none; border-color: var(--primary); box-sha
 .keyfield input { flex: 1; }
 .remember { flex-direction: row; align-items: center; gap: 7px; color: var(--text); font-size: 13px; min-width: auto; }
 .remember input { width: auto; }
+#colsRow { margin-top: 16px; }
+.checks { display: flex; gap: 18px; flex-wrap: wrap; }
+.check { flex-direction: row; align-items: center; gap: 7px; color: var(--text); font-size: 14px; min-width: auto; flex: 0; }
+.check input { width: auto; }
 .ghost { background: var(--card2); color: var(--primary); border: 1.5px solid var(--line); padding: 10px 13px; font-size: 13px; font-weight: 600; }
 .ghost:hover { background: var(--primary-soft); }
 

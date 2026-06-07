@@ -10,7 +10,7 @@ input note, in the SAME ORDER, each with EXACTLY these keys:
   title (string: the FINAL title to store)
   title_changed (bool: true only if title differs from cur_title)
   note (string: the FINAL note to store)
-  note_changed (bool: true only if you actually fixed spelling/grammar/punctuation on a SHORT note)
+  note_changed (bool: true whenever you cleaned or clarified the note - expected for MOST of the user's own notes)
   tags (string: FINAL pipe-separated tags "A | B | C" to store now - NORMALISED, mapped, title-cased; do NOT include pending tags here)
   tags_changed (bool)
   confidence (HIGH, MEDIUM or LOW)
@@ -38,8 +38,8 @@ EXPAND: a thought is present but you cannot safely reconstruct it (e.g. "Good FS
 REFERENCE / STUDY-NOTE: a pointer only ("see study note", "check reference") -> keep unchanged, tag Reference or Study Note.
 RESEARCH / prophecy / chronology / doctrine: preserve the FULL reasoning chain; never compress to a summary.
 
-=== TITLE (main search surface) ===
-20-70 chars, NO scripture or paragraph references, no generic titles. Patterns: "Name: Lesson/Fact" | "Principle: Application" | "Warning: Consequence" | "Topic: Insight". Improve a title ONLY when it is unclear, incomplete, only a scripture phrase, only a question fragment, or unsearchable. For STUB/EXPAND, leave the original title unchanged. Derive the title ONLY from the note's own content.
+=== TITLE (main search surface) - BE BOLD ===
+Write a fresh, searchable title (20-70 chars, NO scripture or paragraph references, no generic titles) for ALMOST EVERY note. Patterns: "Name: Lesson/Fact" | "Principle: Application" | "Warning: Consequence" | "Topic: Insight". KEEP the existing title only if it is already strong, specific and searchable (not a verse phrase, not a fragment); otherwise REWRITE it and set title_changed=true. Default to improving the title. For STUB/EXPAND, leave the original title unchanged. Derive the title ONLY from the note's own content.
 
 === COLOR (store the NUMBER only) ===
 1 Research/Background (history, word/language study, translation, customs, chronology, prophecy/fulfilment, doctrine)
@@ -57,9 +57,14 @@ Priority when several fit: 6 > 5 > 2 > 3 > 1 > 4. IGNORE cur_color_IGNORE (a mea
 4) Workflow: Question, Question Answered, Reflection, Incomplete, Expand, Verify, Study Note, Reference, Review, Stub.
 Use as many tags as genuinely improve retrieval; never pad. RETIRE/MAP old tags: Points -> drop, Explain -> drop, Personal Study -> drop, Highlights -> drop, Ask -> Question, Doubts -> Question, Riddles/Questions -> Question, Find -> Verify (or Question if a question), WT -> Watchtower, BS -> Bible Study, SG -> Spiritual Gems, Ministry -> Preaching or Field Service, Preach -> Preaching, Encourage -> Encouragement, Study (workflow) -> Study Note or drop. "Research" stays. Title-case stray lowercase tags. Do NOT create brand-new topic/situation tags; if none fits and the concept is recurring/searchable, put it in 'pending' and apply the closest existing tag instead. People/place/group names are always allowed (not pending). FACT type: tag by subject only; no "Fact" tag. Add Review to tags when confidence is MEDIUM; add Expand/Stub per classification.
 
+=== NOTE TEXT - CLEAN IT ASSERTIVELY ===
+Decide if the note is the USER'S OWN writing or a PUBLICATION/BIBLE EXCERPT.
+- Publication/Bible excerpt (a polished, complete, formal quote from the Bible, Watchtower, Awake, Insight, a workbook, etc.): leave it VERBATIM, note_changed=false, copy cur_note exactly.
+- The user's own note (terse, informal, with spelling slips, missing words, awkward grammar, shorthand): CLEAN IT - fix spelling/grammar/punctuation, smooth awkward phrasing, and gently reconstruct unclear wording into the meaning the note is clearly reaching for (using ONLY what is in the note, with the heading as context). Set note_changed=true. Do NOT leave a personal note unchanged just to be safe: if it has any error or clumsy phrasing, fix it.
+Preserve the user's voice and uncertainty words ("maybe/perhaps/likely"); add NO new ideas, lessons or interpretation; NEVER make a note materially longer. Expand "Jah" -> "Jehovah". QUESTIONS stay unanswered (you may fix typos and clarify the wording of the question). Truly unrecoverable fragments (a bare word/number): keep as-is, note_changed=false.
+
 === CONFIDENCE & SAFETY ===
 HIGH = clear. MEDIUM = reasonable but ambiguous -> review=true and include "Review" in tags. LOW = unclear/too short/a guess -> do NOT rewrite (title_changed=false, note_changed=false), keep originals, review=true and tag Review (or Expand/Stub).
-NOTE field: only set note_changed=true when you fixed spelling/grammar on a SHORT note. For complete, long, or publication-style notes, set note_changed=false and copy cur_note verbatim into 'note'. NEVER make a note longer than the original.
 """ + OUTPUT_FULL
 
 _NOTE_LEVELS = {

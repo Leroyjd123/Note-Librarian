@@ -151,6 +151,46 @@ class WorkbookEditor:
         hr = self.header_row()
         return {v.strip(): c for c, v in self.rows[hr].items() if isinstance(v, str) and v.strip()}
 
+    def _max_col_index(self) -> int:
+        mx = 0
+        for cells in self.rows.values():
+            for c in cells:
+                mx = max(mx, col_to_idx(c))
+        m = re.search(r'<dimension ref="[A-Z]+\d+:([A-Z]+)\d+"', self.sheet_xml)
+        if m:
+            mx = max(mx, col_to_idx(m.group(1)))
+        return mx
+
+    def _extend_dimension(self, last_col: str) -> None:
+        self.sheet_xml = re.sub(
+            r'<dimension ref="([A-Z]+\d+):[A-Z]+(\d+)"\s*/>',
+            lambda m: f'<dimension ref="{m.group(1)}:{last_col}{m.group(2)}"/>',
+            self.sheet_xml,
+            count=1,
+        )
+
+    def ensure_columns(self, names: list[str]) -> dict[str, str]:
+        """Make sure each header name exists; create missing ones as new columns
+        appended after the last used column. Returns {name: column_letter}."""
+        hr = self.header_row()
+        existing = self.header_map()
+        result: dict[str, str] = {}
+        new_headers: dict[str, object] = {}
+        next_idx = self._max_col_index()
+        for name in names:
+            if name in existing:
+                result[name] = existing[name]
+                continue
+            next_idx += 1
+            letter = idx_to_col(next_idx)
+            result[name] = letter
+            new_headers[letter] = name
+        if new_headers:
+            self.apply_edits({hr: new_headers})   # write header cells (also updates self.rows)
+            self._extend_dimension(idx_to_col(next_idx))
+            self._write()
+        return result
+
     # ----- writing -----
     def _build_cell(self, col: str, rn: int, val, style: Optional[str], numeric: bool) -> str:
         s_attr = f' s="{style}"' if style is not None else ""
