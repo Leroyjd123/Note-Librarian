@@ -83,5 +83,24 @@ def test_shared_strings_and_styles_untouched(tmp_path):
     assert before_styles == after_styles
 
 
+def test_ensure_columns_adds_new_and_keeps_data(tmp_path):
+    path = str(tmp_path / "wb.xlsx")
+    _make_workbook(path)
+    wb = WorkbookEditor(path)
+    cols = wb.ensure_columns(["TAGS", "CONFIDENCE", "REVIEW"])
+    # existing header reused, new ones appended after the last column (E=5 -> F, G)
+    assert cols["TAGS"] == "C"
+    assert cols["CONFIDENCE"] == "F" and cols["REVIEW"] == "G"
+    wb.apply_edits({2: {cols["CONFIDENCE"]: "HIGH", cols["REVIEW"]: "No"}})
+
+    out = openpyxl.load_workbook(path)["JWLManager"]
+    assert out["F1"].value == "CONFIDENCE" and out["G1"].value == "REVIEW"
+    assert out["F2"].value == "HIGH" and out["G2"].value == "No"
+    # original data + hyperlinks intact
+    assert out["A2"].value == "Old title" and out["B2"].value == "Old note"
+    assert out["E2"].hyperlink is not None
+    assert out.max_column == 7
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

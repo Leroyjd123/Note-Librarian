@@ -109,7 +109,8 @@ def _ctx(cells: dict, headers: dict, mode: str) -> dict:
     return d
 
 
-def _apply(wb: WorkbookEditor, headers: dict, mode: str, results: list[dict]) -> dict:
+def _apply(wb: WorkbookEditor, headers: dict, mode: str, results: list[dict], extra: dict | None = None) -> dict:
+    extra = extra or {}
     T, N, G, C = (headers.get(k) for k in ("TITLE", "NOTE", "TAGS", "COLOR"))
     edits: dict[int, dict] = {}
     counts = {"title": 0, "note": 0, "tags": 0, "color": 0}
@@ -146,6 +147,17 @@ def _apply(wb: WorkbookEditor, headers: dict, mode: str, results: list[dict]) ->
             for pt in (r.get("pending") or []):
                 if isinstance(pt, str) and pt.strip():
                     pending.setdefault(pt.strip(), []).append(row)
+            # extra columns (created beforehand): always populated
+            is_review = bool(r.get("review")) or r.get("confidence") in ("MEDIUM", "LOW")
+            extra_vals = {
+                "TYPE": r.get("type", ""),
+                "CONFIDENCE": r.get("confidence", ""),
+                "REVIEW": "Yes" if is_review else "No",
+            }
+            for name, letter in extra.items():
+                val = extra_vals.get(name, "")
+                if _norm(val) != _norm(cur.get(letter, "")):
+                    cell[letter] = val
         else:  # notes
             action = r.get("action")
             if action == "cleaned" and N and str(r.get("new_note", "")).strip() and _norm(r.get("new_note")) != _norm(cur.get(N, "")):
@@ -177,6 +189,25 @@ async def run_job(job, output_path: str, req) -> None:
         if missing:
             job.warnings.append("Columns not found (skipped): " + ", ".join(missing))
 
+        # Resolve the key and build the provider FIRST, so a bad key never modifies the file.
+        api_key = resolve_api_key(req.provider, getattr(req, "api_key", None))
+        provider = get_provider(req.provider, req.model, req.max_tokens, api_key)
+        system = prompts.FULL_SPEC if req.mode == "full" else prompts.notes_spec(req.note_level)
+
+        # Create extra output columns (full pass only) before processing.
+        extra_cols: dict[str, str] = {}
+        if req.mode == "full":
+            want = []
+            if getattr(req, "write_type", False):
+                want.append("TYPE")
+            if getattr(req, "write_confidence", False):
+                want.append("CONFIDENCE")
+            if getattr(req, "write_review", False):
+                want.append("REVIEW")
+            if want:
+                extra_cols = wb.ensure_columns(want)
+                headers = wb.header_map()
+
         hr = wb.header_row()
         items = []
         for r in sorted(wb.rows):
@@ -192,10 +223,6 @@ async def run_job(job, output_path: str, req) -> None:
         batches = [items[i : i + req.batch_size] for i in range(0, len(items), req.batch_size)]
         job.batches_total = len(batches)
 
-        api_key = resolve_api_key(req.provider, getattr(req, "api_key", None))
-        provider = get_provider(req.provider, req.model, req.max_tokens, api_key)
-        system = prompts.FULL_SPEC if req.mode == "full" else prompts.notes_spec(req.note_level)
-
         lock = asyncio.Lock()
         sem = asyncio.Semaphore(req.concurrency)
 
@@ -203,7 +230,7 @@ async def run_job(job, output_path: str, req) -> None:
             async with sem:
                 results = await _process_batch(provider, system, batch, job.warnings)
             async with lock:
-                out = _apply(wb, headers, req.mode, results)
+                out = _apply(wb, headers, req.mode, results, extra_cols)
                 job.cells_written += out["cells"]
                 job.title_edits += out["title"]
                 job.note_edits += out["note"]

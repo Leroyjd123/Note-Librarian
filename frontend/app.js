@@ -23,7 +23,9 @@ async function init() {
   $("conc").value = d.concurrency;
   $("maxtok").value = d.max_tokens;
   $("mode").addEventListener("change", () => {
-    $("levelWrap").classList.toggle("hidden", $("mode").value !== "notes");
+    const notes = $("mode").value === "notes";
+    $("levelWrap").classList.toggle("hidden", !notes);
+    $("colsRow").classList.toggle("hidden", notes);
   });
   setupKeyField();
   setupUpload();
@@ -188,6 +190,9 @@ async function run() {
     batch_size: +$("batch").value,
     concurrency: +$("conc").value,
     max_tokens: +$("maxtok").value,
+    write_type: $("colType").checked,
+    write_confidence: $("colConf").checked,
+    write_review: $("colReview").checked,
   };
   const res = await fetch("/api/process", {
     method: "POST",

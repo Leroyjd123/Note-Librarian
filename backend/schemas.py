@@ -29,6 +29,10 @@ class ProcessRequest(BaseModel):
     concurrency: int = Field(4, ge=1, le=16)
     max_tokens: int = Field(16000, ge=1000, le=64000)
     sheet_name: Optional[str] = None
+    # Extra columns to add to the output (full pass only). Created if absent.
+    write_type: bool = True
+    write_confidence: bool = True
+    write_review: bool = True
 
 
 class ReviewRow(BaseModel):
