@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Note Librarian</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo">📖</div>
+      <h1>Note <span>Librarian</span></h1>
+    </div>
+    <p class="sub">Tidy, title, tag and colour your study notes - made for JW Library notes exported to Excel (.xlsx). Only four columns are ever changed; everything else stays exactly as it was.</p>
+    <nav class="topnav">
+      <button class="navbtn active" data-view="tool">Librarian</button>
+      <button class="navbtn" data-view="help">How it works</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ===================== TOOL VIEW ===================== -->
+    <div id="view-tool">
+      <!-- Step 1: provider + key -->
+      <section class="card">
+        <h2><span class="step">1</span> Choose an AI provider &amp; enter your key</h2>
+        <div id="providers" class="providers"></div>
+
+        <div class="keyrow">
+          <label>Your API key
+            <div class="keyfield">
+              <input id="apikey" type="password" placeholder="Paste your API key" autocomplete="off" />
+              <button type="button" id="toggleKey" class="ghost" title="Show / hide">show</button>
+            </div>
+          </label>
+          <label class="remember">
+            <input id="remember" type="checkbox" checked />
+            <span>Remember in this browser</span>
+          </label>
+          <button type="button" id="clearKey" class="ghost">Clear</button>
+        </div>
+        <small class="hint">Your key is sent only to this server to process your file, and is <strong>never stored on the server</strong>. With "remember" on it is saved in this browser only. <a href="#" class="link" data-view="help">What is an API key / model id?</a></small>
+
+        <div class="row">
+          <label>Model ID
+            <input id="model" type="text" placeholder="model id" />
+            <small class="hint">The exact model name from your provider (e.g. claude-sonnet-4-6). Must be one your key can access.</small>
+          </label>
+          <label>Mode
+            <select id="mode">
+              <option value="full">Full pass (titles, tags, colours, grammar)</option>
+              <option value="notes">Notes only (clean note text)</option>
+            </select>
+            <small class="hint">Full = organise everything. Notes only = just tidy the note wording.</small>
+          </label>
+          <label id="levelWrap" class="hidden">Note level
+            <select id="level">
+              <option value="spelling">Spelling/grammar only</option>
+              <option value="clarity">Grammar + clarity</option>
+              <option value="reconstruct" selected>Clarity + reconstruct intent</option>
+            </select>
+            <small class="hint">How boldly to rewrite your own notes.</small>
+          </label>
+        </div>
+
+        <div class="row">
+          <label>Batch size
+            <input id="batch" type="number" min="1" max="500" />
+            <small class="hint">Notes sent to the AI per request. Smaller = more reliable. ~40 is good.</small>
+          </label>
+          <label>Concurrency
+            <input id="conc" type="number" min="1" max="16" />
+            <small class="hint">Batches run at the same time. Higher = faster, more rate-limit risk.</small>
+          </label>
+          <label>Max tokens
+            <input id="maxtok" type="number" min="1000" max="64000" step="1000" />
+            <small class="hint">Max length of each AI reply. Too low truncates; the app auto-recovers.</small>
+          </label>
+        </div>
+      </section>
+
+      <!-- Step 2: upload -->
+      <section class="card">
+        <h2><span class="step">2</span> Upload workbook</h2>
+        <label id="drop" class="drop">
+          <input id="file" type="file" accept=".xlsx,.xlsm" hidden />
+          <span id="dropText">Click to choose an .xlsx file</span>
+        </label>
+        <div id="fileInfo" class="info hidden"></div>
+      </section>
+
+      <!-- Step 3: run -->
+      <section class="card">
+        <h2><span class="step">3</span> Process</h2>
+        <button id="run" disabled>Start processing</button>
+        <div id="progressWrap" class="hidden">
+          <div class="bar"><div id="bar" class="bar-fill"></div></div>
+          <div id="progressText" class="muted"></div>
+        </div>
+        <div id="stats" class="stats hidden"></div>
+        <a id="download" class="btn hidden" href="#">Download processed workbook</a>
+      </section>
+
+      <!-- Reports -->
+      <section id="reportsCard" class="card hidden">
+        <h2>Reports</h2>
+        <div class="tabs">
+          <button class="tab active" data-tab="review">Review</button>
+          <button class="tab" data-tab="pending">Pending tags</button>
+          <button class="tab" data-tab="warn">Warnings</button>
+        </div>
+        <div id="tab-review" class="tabpane"></div>
+        <div id="tab-pending" class="tabpane hidden"></div>
+        <div id="tab-warn" class="tabpane hidden"></div>
+      </section>
+    </div>
+
+    <!-- ===================== HELP VIEW ===================== -->
+    <div id="view-help" class="hidden">
+      <section class="card">
+        <h2>What this tool does</h2>
+        <p>It is made for <strong>JW Library</strong> personal study notes. Export your notes to an Excel file (<code>.xlsx</code>), upload it here, and an AI model makes them easier to find and read. For every note it can improve four things only - the <strong>title</strong>, the <strong>note text</strong>, the <strong>tags</strong>, and the <strong>colour</strong>. It matches those columns by their headers, so the export's column order doesn't matter. Everything else in your file (other columns, formatting, hyperlinks, other rows) is left exactly as it was, and a <code>.bak</code> backup of your original is saved automatically.</p>
+      </section>
+
+      <section class="card">
+        <h2>The settings, in plain words</h2>
+        <dl class="defs">
+          <dt>Provider</dt><dd>Which AI company runs your notes - Claude (Anthropic), OpenAI, or Gemini (Google). You bring your own API key.</dd>
+          <dt>API key</dt><dd>A secret password-like string from your provider's website that lets the app use your account. You paste it in; it is used only to run your file and is never stored on the server.</dd>
+          <dt>Model ID</dt><dd>The exact name of the model to use, e.g. <code>claude-sonnet-4-6</code>, <code>gpt-4o</code>, <code>gemini-1.5-pro</code>. It picks which version/size of the AI is called. Larger models are usually more accurate but cost more and run slower. It must be a model your key has access to.</dd>
+          <dt>Mode</dt><dd><strong>Full pass</strong> organises everything (titles, tags, colours, plus light grammar fixes). <strong>Notes only</strong> leaves titles/tags/colours untouched and just cleans the note wording.</dd>
+          <dt>Note level</dt><dd>Only for "Notes only" mode. <em>Spelling/grammar</em> = fix typos, keep your exact words. <em>Grammar + clarity</em> = also smooth awkward phrasing. <em>Clarity + reconstruct</em> = also gently rebuild unclear notes into their intended meaning (never adding new ideas).</dd>
+          <dt>Batch size</dt><dd>How many notes are sent to the AI in one request. Smaller batches are more reliable (less chance of a cut-off reply) but make more requests. ~40 is a good balance.</dd>
+          <dt>Concurrency</dt><dd>How many batches are processed at the same time. Higher is faster but can hit your provider's rate limits.</dd>
+          <dt>Max tokens</dt><dd>The maximum length of each AI reply. It must be large enough to hold all the results for one batch. If it is too small the reply gets cut off - the app detects this, splits the batch, and retries automatically.</dd>
+        </dl>
+      </section>
+
+      <section class="card">
+        <h2>How it handles each note</h2>
+        <p><strong>1. It classifies the note</strong> as one of: Note, Observation, Fact, Question, Reflection, Illustration, Outline, Research, Reference, Study-note, or Stub. Questions are kept as unanswered questions. Fragments it can't safely interpret are left untouched and flagged.</p>
+        <p><strong>2. It writes a searchable title</strong> (20-70 characters, no scripture references) - but only when the existing title is missing, unclear, or just a verse phrase. Good titles are kept.</p>
+        <p><strong>3. It assigns a colour by meaning:</strong></p>
+        <table class="legend">
+          <tr><td><span class="sw c1">1</span></td><td><strong>Research / Background</strong></td><td>history, word/language study, customs, chronology, prophecy, doctrine</td></tr>
+          <tr><td><span class="sw c2">2</span></td><td><strong>Personal Reflection</strong></td><td>self-examination - "Do we...", "Am I..."</td></tr>
+          <tr><td><span class="sw c3">3</span></td><td><strong>Teaching Point</strong></td><td>a clear lesson - good for a talk, comment, or discussion</td></tr>
+          <tr><td><span class="sw c4">4</span></td><td><strong>General Observation</strong></td><td>the default for most notes</td></tr>
+          <tr><td><span class="sw c5">5</span></td><td><strong>Warning</strong></td><td>a negative example, danger, failure, or consequence</td></tr>
+          <tr><td><span class="sw c6">6</span></td><td><strong>Illustration</strong></td><td>the value is the comparison or word-picture itself</td></tr>
+        </table>
+        <p class="muted">When several fit, priority is 6 &gt; 5 &gt; 2 &gt; 3 &gt; 1 &gt; 4. The colour already in your file is ignored (it is just an app highlight) and reassigned from the note's meaning.</p>
+
+        <p><strong>4. It builds tags</strong> in layers: <em>People/places</em> (Bible names, nations, groups), then <em>Topics</em> (qualities, themes, ministry, family...), then <em>Situations</em> (grief, anxiety, persecution...), then <em>Workflow</em> (Question, Review, Study Note...). Old/short tags are retired or remapped (e.g. <code>job</code> &rarr; <code>Job</code>, <code>WT</code> &rarr; <code>Watchtower</code>, <code>Ask</code> &rarr; <code>Question</code>). It won't invent brand-new topic tags; if a useful new concept comes up it lists it under <strong>Pending tags</strong> for your approval instead of applying it.</p>
+
+        <p><strong>5. It corrects note text conservatively.</strong> It never invents meaning, lessons, or interpretation; it preserves your voice and uncertainty words ("maybe", "perhaps"); and it leaves genuine Bible/publication quotes exactly as they are.</p>
+      </section>
+
+      <section class="card">
+        <h2>Confidence &amp; safety</h2>
+        <ul class="bullets">
+          <li><strong>Confidence</strong> is HIGH, MEDIUM, or LOW. Anything MEDIUM or LOW is added to the <strong>Review</strong> list and tagged <code>Review</code> so you can check it.</li>
+          <li><strong>Low-confidence notes are never rewritten</strong> - the original is kept.</li>
+          <li><strong>Only TITLE, NOTE, TAGS, COLOR</strong> cells that actually change are written. Hyperlinks, styles, and every other cell stay byte-for-byte identical.</li>
+          <li>A <code>.bak</code> copy of your original workbook is created on the first write.</li>
+          <li>If the AI's reply for a batch can't be read, the app splits and retries; in the worst case it leaves a note unchanged (shown under <strong>Warnings</strong>) rather than risk corrupting it.</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <p>Edits only <strong>TITLE, NOTE, TAGS, COLOR</strong>. Everything else - hyperlinks, formatting, other rows - is preserved byte-for-byte. A <code>.bak</code> of your original is kept automatically.</p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

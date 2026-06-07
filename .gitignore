@@ -1,0 +1,20 @@
+# Secrets
+.env
+
+# Runtime data (uploads, job outputs, backups)
+data/
+*.bak
+*.xlsx.tmp
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

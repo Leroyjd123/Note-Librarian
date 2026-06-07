@@ -1,0 +1,14 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+pydantic-settings>=2.2
+python-multipart>=0.0.9
+
+# LLM providers (only the one you use needs its key set)
+anthropic>=0.40
+openai>=1.40
+google-generativeai>=0.7
+
+# Test/validation only
+openpyxl>=3.1
+pytest>=8.0
