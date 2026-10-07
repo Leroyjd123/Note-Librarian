@@ -4,7 +4,8 @@ Edits only specific cells (by column letter) in one worksheet, rewriting just th
 affected ``<row>`` blocks in the sheet XML. String cells become inline strings;
 chosen columns can be written as numbers. Everything else in the workbook
 (sharedStrings, styles, hyperlinks, other cells/rows/sheets) is preserved
-byte-for-byte. A ``.bak`` of the original file is created on the first write.
+byte-for-byte. Edits are held in memory until ``save()``; with ``backup=True`` a
+``.bak`` of the original file is created on the first save.
 
 This is the safety-critical core of the app and is covered by tests/test_xlsx_io.py.
 """
@@ -19,7 +20,14 @@ from typing import Optional
 
 # Full cell token (handles both ``<c .../>`` and ``<c ...>...</c>``).
 _CELL_RE = re.compile(r'<c\b[^>]*?\br="([A-Z]+)(\d+)"[^>]*?(?:/>|>.*?</c>)', re.S)
-_ROW_RE = re.compile(r'<row\b[^>]*?\br="(\d+)"[^>]*?>(.*?)</row>', re.S)
+# Rows may be self-closing (``<row r="5" ht="30" customHeight="1"/>``) when they
+# hold no cells; group 2 is None for those.
+_ROW_RE = re.compile(r'<row\b[^>]*?\br="(\d+)"[^>]*?(?:/>|>(.*?)</row>)', re.S)
+# Characters that are not allowed anywhere in an XML 1.0 document.
+_XML_ILLEGAL_RE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+
+# Refuse workbooks that would inflate to more than this in memory (zip bombs).
+MAX_UNCOMPRESSED_BYTES = 300 * 1024 * 1024
 
 
 def col_to_idx(col: str) -> int:
@@ -39,16 +47,27 @@ def idx_to_col(idx: int) -> str:
 
 
 def _xml_escape(s: str) -> str:
+    s = _XML_ILLEGAL_RE.sub("", s)
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 class WorkbookEditor:
     """Loads a workbook into memory and applies surgical cell edits."""
 
-    def __init__(self, path: str, sheet_name: Optional[str] = None):
+    def __init__(
+        self,
+        path: str,
+        sheet_name: Optional[str] = None,
+        backup: bool = True,
+        max_uncompressed: int = MAX_UNCOMPRESSED_BYTES,
+    ):
         self.path = path
+        self.backup = backup
         with zipfile.ZipFile(path) as z:
-            self.names = z.namelist()
+            infos = z.infolist()
+            if sum(i.file_size for i in infos) > max_uncompressed:
+                raise ValueError("Workbook is too large once decompressed.")
+            self.names = [i.filename for i in infos]
             self.parts = {n: z.read(n) for n in self.names}
         self.sheet_name, self.sheet_path = self._resolve_sheet(sheet_name)
         self.sheet_xml = self.parts[self.sheet_path].decode("utf-8")
@@ -59,7 +78,7 @@ class WorkbookEditor:
     # ----- workbook structure -----
     def list_sheets(self) -> list[str]:
         wb = self.parts.get("xl/workbook.xml", b"").decode("utf-8")
-        return [m.group(1) for m in re.finditer(r'<sheet\b[^>]*?\bname="([^"]*)"', wb)]
+        return [html.unescape(m.group(1)) for m in re.finditer(r'<sheet\b[^>]*?\bname="([^"]*)"', wb)]
 
     def _resolve_sheet(self, want: Optional[str]):
         wb = self.parts.get("xl/workbook.xml", b"").decode("utf-8")
@@ -83,13 +102,14 @@ class WorkbookEditor:
                 tgt = tgt.lstrip("/")
                 if not tgt.startswith("xl/"):
                     tgt = "xl/" + tgt
-            ordered.append((nm.group(1), tgt))
+            ordered.append((html.unescape(nm.group(1)), tgt))
 
         candidates = sorted(n for n in self.names if re.match(r"xl/worksheets/sheet\d+\.xml$", n))
         if want:
             for name, tgt in ordered:
                 if name == want and tgt in self.parts:
                     return name, tgt
+            raise ValueError(f"Sheet '{want}' not found in workbook.")
         for name, tgt in ordered:
             if tgt and tgt in self.parts:
                 return name, tgt
@@ -135,7 +155,7 @@ class WorkbookEditor:
         for rm in _ROW_RE.finditer(self.sheet_xml):
             rn = int(rm.group(1))
             cells = {}
-            for cm in _CELL_RE.finditer(rm.group(2)):
+            for cm in _CELL_RE.finditer(rm.group(2) or ""):
                 cells[cm.group(1)] = self._cell_value(cm.group(0))
             rows[rn] = cells
         return rows
@@ -144,12 +164,26 @@ class WorkbookEditor:
     def header_row(self) -> int:
         return min(self.rows) if self.rows else 1
 
-    def header_map(self) -> dict[str, str]:
-        """Header name -> column letter, taken from the first present row."""
+    def _header_cells(self) -> list[tuple[str, str]]:
+        """(column letter, header name) pairs from the header row, left to right."""
         if not self.rows:
-            return {}
-        hr = self.header_row()
-        return {v.strip(): c for c, v in self.rows[hr].items() if isinstance(v, str) and v.strip()}
+            return []
+        cells = self.rows[self.header_row()]
+        return [(c, cells[c].strip()) for c in sorted(cells, key=col_to_idx) if cells[c].strip()]
+
+    def header_map(self) -> dict[str, str]:
+        """Header name -> column letter. If a name repeats, the leftmost column wins."""
+        out: dict[str, str] = {}
+        for c, name in self._header_cells():
+            out.setdefault(name, c)
+        return out
+
+    def duplicate_headers(self) -> list[str]:
+        """Header names that appear in more than one column."""
+        seen: dict[str, int] = {}
+        for _, name in self._header_cells():
+            seen[name] = seen.get(name, 0) + 1
+        return [n for n, k in seen.items() if k > 1]
 
     def _max_col_index(self) -> int:
         mx = 0
@@ -186,9 +220,8 @@ class WorkbookEditor:
             result[name] = letter
             new_headers[letter] = name
         if new_headers:
-            self.apply_edits({hr: new_headers})   # write header cells (also updates self.rows)
+            self.apply_edits({hr: new_headers}, save=False)   # also updates self.rows
             self._extend_dimension(idx_to_col(next_idx))
-            self._write()
         return result
 
     # ----- writing -----
@@ -199,8 +232,13 @@ class WorkbookEditor:
         txt = _xml_escape("" if val is None else str(val))
         return f'<c r="{col}{rn}"{s_attr} t="inlineStr"><is><t xml:space="preserve">{txt}</t></is></c>'
 
-    def apply_edits(self, edits: dict[int, dict[str, object]], numeric_cols=frozenset()) -> int:
-        """edits: {row_number: {col_letter: value}}. Returns number of cells written."""
+    def apply_edits(
+        self, edits: dict[int, dict[str, object]], numeric_cols=frozenset(), save: bool = True
+    ) -> int:
+        """edits: {row_number: {col_letter: value}}. Returns number of cells written.
+
+        Only rows that already exist in the sheet are edited. With ``save=False``
+        the change stays in memory until ``save()`` is called."""
         if not edits:
             return 0
         changed = 0
@@ -211,8 +249,12 @@ class WorkbookEditor:
             if rn not in edits:
                 return m.group(0)
             whole = m.group(0)
-            head = whole[: whole.index(">") + 1]
-            body = m.group(2)
+            if m.group(2) is None:  # self-closing <row .../>: reopen it
+                head = whole[:-2].rstrip() + ">"
+                body = ""
+            else:
+                head = whole[: whole.index(">") + 1]
+                body = m.group(2)
             tokens: dict[str, str] = {}
             styles: dict[str, Optional[str]] = {}
             for cm in _CELL_RE.finditer(body):
@@ -232,11 +274,13 @@ class WorkbookEditor:
             return head + "".join(tokens[c] for c in ordered) + "</row>"
 
         self.sheet_xml = _ROW_RE.sub(repl, self.sheet_xml)
-        self._write()
+        if save:
+            self.save()
         return changed
 
-    def _write(self) -> None:
-        if not self._bak_done:
+    def save(self) -> None:
+        """Write the workbook back to ``self.path`` (atomically, via a temp file)."""
+        if self.backup and not self._bak_done:
             bak = self.path + ".bak"
             if not os.path.exists(bak):
                 shutil.copy2(self.path, bak)

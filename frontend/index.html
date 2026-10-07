@@ -45,7 +45,7 @@
         <div class="row">
           <label>Model ID
             <input id="model" type="text" placeholder="model id" />
-            <small class="hint">The exact model name from your provider (e.g. claude-sonnet-4-6). Must be one your key can access.</small>
+            <small class="hint">The exact model name from your provider (e.g. claude-opus-5-5). Must be one your key can access.</small>
           </label>
           <label>Mode
             <select id="mode">
@@ -129,7 +129,7 @@
     <div id="view-help" class="hidden">
       <section class="card">
         <h2>What this tool does</h2>
-        <p>It is made for <strong>JW Library</strong> personal study notes. Export your notes to an Excel file (<code>.xlsx</code>), upload it here, and an AI model makes them easier to find and read. For every note it can improve four things only - the <strong>title</strong>, the <strong>note text</strong>, the <strong>tags</strong>, and the <strong>colour</strong>. It matches those columns by their headers, so the export's column order doesn't matter. Everything else in your file (other columns, formatting, hyperlinks, other rows) is left exactly as it was, and a <code>.bak</code> backup of your original is saved automatically.</p>
+        <p>It is made for <strong>JW Library</strong> personal study notes. Export your notes to an Excel file (<code>.xlsx</code>), upload it here, and an AI model makes them easier to find and read. For every note it can improve four things only - the <strong>title</strong>, the <strong>note text</strong>, the <strong>tags</strong>, and the <strong>colour</strong>. It matches those columns by their headers, so the export's column order doesn't matter. Everything else in your file (other columns, formatting, hyperlinks, other rows) is left exactly as it was. Your upload itself is never changed - you download a processed copy.</p>
       </section>
 
       <section class="card">
@@ -137,7 +137,7 @@
         <dl class="defs">
           <dt>Provider</dt><dd>Which AI company runs your notes - Claude (Anthropic), OpenAI, or Gemini (Google). You bring your own API key.</dd>
           <dt>API key</dt><dd>A secret password-like string from your provider's website that lets the app use your account. You paste it in; it is used only to run your file and is never stored on the server.</dd>
-          <dt>Model ID</dt><dd>The exact name of the model to use, e.g. <code>claude-sonnet-4-6</code>, <code>gpt-4o</code>, <code>gemini-1.5-pro</code>. It picks which version/size of the AI is called. Larger models are usually more accurate but cost more and run slower. It must be a model your key has access to.</dd>
+          <dt>Model ID</dt><dd>The exact name of the model to use, e.g. <code>claude-opus-5-5</code>, <code>gpt-5.5</code>, <code>gemini-flash-latest</code>. It picks which version/size of the AI is called. Larger models are usually more accurate but cost more and run slower. It must be a model your key has access to.</dd>
           <dt>Mode</dt><dd><strong>Full pass</strong> organises everything (titles, tags, colours, plus light grammar fixes). <strong>Notes only</strong> leaves titles/tags/colours untouched and just cleans the note wording.</dd>
           <dt>Note level</dt><dd>Only for "Notes only" mode. <em>Spelling/grammar</em> = fix typos, keep your exact words. <em>Grammar + clarity</em> = also smooth awkward phrasing. <em>Clarity + reconstruct</em> = also gently rebuild unclear notes into their intended meaning (never adding new ideas).</dd>
           <dt>Batch size</dt><dd>How many notes are sent to the AI in one request. Smaller batches are more reliable (less chance of a cut-off reply) but make more requests. ~40 is a good balance.</dd>
@@ -172,7 +172,7 @@
           <li><strong>Confidence</strong> is HIGH, MEDIUM, or LOW. Anything MEDIUM or LOW is added to the <strong>Review</strong> list and tagged <code>Review</code> so you can check it.</li>
           <li><strong>Low-confidence notes are never rewritten</strong> - the original is kept.</li>
           <li><strong>Only TITLE, NOTE, TAGS, COLOR</strong> cells that actually change are written. Hyperlinks, styles, and every other cell stay byte-for-byte identical.</li>
-          <li>A <code>.bak</code> copy of your original workbook is created on the first write.</li>
+          <li>Your uploaded file is never modified, and the processed copy is only written if the whole run succeeds.</li>
           <li>If the AI's reply for a batch can't be read, the app splits and retries; in the worst case it leaves a note unchanged (shown under <strong>Warnings</strong>) rather than risk corrupting it.</li>
         </ul>
       </section>
@@ -180,7 +180,7 @@
   </main>
 
   <footer>
-    <p>Edits only <strong>TITLE, NOTE, TAGS, COLOR</strong>. Everything else - hyperlinks, formatting, other rows - is preserved byte-for-byte. A <code>.bak</code> of your original is kept automatically.</p>
+    <p>Edits only <strong>TITLE, NOTE, TAGS, COLOR</strong>. Everything else - hyperlinks, formatting, other rows - is preserved byte-for-byte. Your upload is never modified.</p>
   </footer>
 
   <script src="/app.js"></script>

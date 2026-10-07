@@ -11,7 +11,8 @@ It classifies each note, gives it a searchable **title**, assigns a meaning-base
 ## Why it's safe
 
 - Edits are surgical: only the `TITLE`, `NOTE`, `TAGS`, and `COLOR` cells that actually change are rewritten, directly in the worksheet XML. Shared strings, styles, hyperlinks, and all other rows/sheets are left untouched.
-- A `.bak` copy of your original file is created automatically on the first write.
+- Your uploaded file is never modified: processing happens on a copy, and the output is written only when the whole job succeeds — a failed job never leaves a half-edited workbook.
+- AI replies are validated before anything is written: results for rows that weren't sent are ignored, a missing or malformed field leaves that cell as it was, and colours outside 1–6 are dropped.
 - The behaviour is covered by tests (`tests/test_xlsx_io.py`).
 - Your API keys live in `.env` and are never sent anywhere except the provider you pick.
 
@@ -89,6 +90,8 @@ All settings come from environment variables / `.env` (see `.env.example`):
 | `DEFAULT_BATCH_SIZE` | Notes per LLM request (smaller = more reliable JSON) |
 | `DEFAULT_CONCURRENCY` | How many batches run at once |
 | `DEFAULT_MAX_TOKENS` | Max output tokens per request |
+| `MAX_UPLOAD_MB` | Largest workbook accepted (default 25) |
+| `RETENTION_MINUTES` | Uploads and job outputs are deleted after this long (default 120) |
 
 Models change over time and depend on your account — set `model` in the UI (or the `DEFAULT_*_MODEL` envs) to one you have access to.
 
@@ -111,7 +114,7 @@ jwl-v8-librarian/
 │   ├── jobs.py             # in-memory job registry
 │   └── providers/          # Claude / OpenAI / Gemini behind one interface
 ├── frontend/               # zero-build HTML + CSS + JS
-└── tests/test_xlsx_io.py   # round-trip / byte-for-byte safety tests
+└── tests/                  # xlsx safety, engine validation and API tests
 ```
 
 ## Running the tests
@@ -126,7 +129,10 @@ pytest -q
 
 - Jobs are kept in memory, so a server restart clears job history (your downloaded files are unaffected). Fine for single-user local use.
 - Very large batches can hit a model's output limit; if a batch's JSON can't be parsed, the engine automatically splits it and retries, and only ever leaves a note **unchanged** (never corrupts it) as a last resort — such rows appear under **Warnings**.
-- Processed files and backups are written under `data/` (git-ignored).
+- Uploads and processed files are written under `data/` (git-ignored) and deleted automatically after `RETENTION_MINUTES`, so download your result promptly.
+- Each browser gets its own session cookie; uploads and jobs can only be read back by the browser that created them.
+- Temporary AI errors (rate limits, overload, network blips) are retried with backoff. A persistent failure stops the whole job and nothing is written.
+- `.xlsm` workbooks keep their extension and macros.
 
 ---
 

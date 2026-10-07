@@ -21,6 +21,7 @@ class OpenAIProvider(LLMProvider):
                 {"role": "user", "content": user},
             ],
             response_format={"type": "json_object"},
-            max_tokens=self.max_tokens,
+            # max_tokens is rejected by reasoning models; this works on all current ones.
+            max_completion_tokens=self.max_tokens,
         )
         return resp.choices[0].message.content or ""

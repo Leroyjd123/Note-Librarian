@@ -1,11 +1,18 @@
 """Application settings, loaded from environment / .env file."""
 from __future__ import annotations
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # .env is read from the project folder, whatever directory the app is started from.
+    model_config = SettingsConfigDict(
+        env_file=str(BASE_DIR / ".env"), env_file_encoding="utf-8", extra="ignore"
+    )
 
     # API keys (keep these in .env, never commit them)
     anthropic_api_key: str | None = None
@@ -14,15 +21,19 @@ class Settings(BaseSettings):
 
     # Defaults surfaced to the UI
     default_provider: str = "anthropic"
-    default_anthropic_model: str = "claude-sonnet-4-6"
-    default_openai_model: str = "gpt-4o"
-    default_gemini_model: str = "gemini-1.5-pro"
+    default_anthropic_model: str = "claude-opus-5-5"
+    default_openai_model: str = "gpt-5.5"
+    default_gemini_model: str = "gemini-flash-latest"
 
     default_batch_size: int = 40
     default_concurrency: int = 4
     default_max_tokens: int = 16000
 
     data_dir: str = "data"
+    # Largest upload accepted, in megabytes.
+    max_upload_mb: int = 25
+    # Uploads and finished job outputs are deleted after this many minutes.
+    retention_minutes: int = 120
 
 
 settings = Settings()

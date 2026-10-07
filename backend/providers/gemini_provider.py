@@ -1,4 +1,4 @@
-"""Google Gemini provider."""
+"""Google Gemini provider (google-genai SDK)."""
 from __future__ import annotations
 
 from .base import LLMProvider
@@ -9,18 +9,20 @@ class GeminiProvider(LLMProvider):
 
     def __init__(self, api_key: str, model: str, max_tokens: int):
         super().__init__(api_key, model, max_tokens)
-        import google.generativeai as genai
+        from google import genai
+        from google.genai import types
 
-        genai.configure(api_key=api_key)
-        self._genai = genai
+        self.client = genai.Client(api_key=api_key)
+        self._types = types
 
     def complete(self, system: str, user: str) -> str:
-        model = self._genai.GenerativeModel(self.model, system_instruction=system)
-        resp = model.generate_content(
-            user,
-            generation_config={
-                "response_mime_type": "application/json",
-                "max_output_tokens": self.max_tokens,
-            },
+        resp = self.client.models.generate_content(
+            model=self.model,
+            contents=user,
+            config=self._types.GenerateContentConfig(
+                system_instruction=system,
+                response_mime_type="application/json",
+                max_output_tokens=self.max_tokens,
+            ),
         )
         return resp.text or ""

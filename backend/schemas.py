@@ -14,6 +14,7 @@ class UploadInfo(BaseModel):
     row_count: int          # data rows (excludes header)
     headers: dict[str, str]  # header name -> column letter
     missing_targets: list[str]  # of TITLE/NOTE/TAGS/COLOR not found
+    duplicate_headers: list[str] = []  # header names used by more than one column
 
 
 class ProcessRequest(BaseModel):

@@ -5,6 +5,7 @@ const LABELS = { anthropic: "Claude (Anthropic)", openai: "OpenAI", gemini: "Gem
 let CONFIG = null;
 let selectedProvider = null;
 let fileId = null;
+let sheetName = null;
 let pollTimer = null;
 
 // ---- browser-only key storage (per provider) ----
@@ -141,28 +142,49 @@ async function uploadFile(file) {
   const res = await fetch("/api/upload", { method: "POST", body: fd });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
-    $("dropText").textContent = "Upload failed: " + (e.detail || res.status);
+    $("dropText").textContent = "Upload failed: " + (typeof e.detail === "string" ? e.detail : res.status);
     return;
   }
   const info = await res.json();
   fileId = info.file_id;
+  sheetName = info.sheet_name;
   $("dropText").textContent = "✓ " + info.filename;
   renderFileInfo(info);
   $("run").disabled = false;
 }
 
+async function chooseSheet(name) {
+  const res = await fetch(`/api/uploads/${encodeURIComponent(fileId)}/sheet?name=${encodeURIComponent(name)}`);
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    $("fileInfo").insertAdjacentHTML("beforeend", `<p class="err">${esc(e.detail || "Could not read that sheet.")}</p>`);
+    return;
+  }
+  const info = await res.json();
+  sheetName = info.sheet_name;
+  renderFileInfo(info);
+}
+
 function renderFileInfo(info) {
   const found = ["TITLE", "NOTE", "TAGS", "COLOR"].map((h) => {
     const ok = info.headers[h];
-    return `<span class="pill ${ok ? "" : "miss"}">${h}${ok ? " = " + ok : " missing"}</span>`;
+    return `<span class="pill ${ok ? "" : "miss"}">${h}${ok ? " = " + esc(ok) : " missing"}</span>`;
   }).join(" ");
+  const sheetCell = info.sheets.length > 1
+    ? `<select id="sheetPick">${info.sheets.map((n) =>
+        `<option value="${esc(n)}"${n === info.sheet_name ? " selected" : ""}>${esc(n)}</option>`).join("")}</select>`
+    : esc(info.sheet_name);
+  const dups = info.duplicate_headers || [];
   $("fileInfo").innerHTML =
     `<table>` +
-    `<tr><td>Sheet</td><td class="v">${info.sheet_name}</td></tr>` +
+    `<tr><td>Sheet</td><td class="v">${sheetCell}</td></tr>` +
     `<tr><td>Data rows</td><td class="v">${info.row_count}</td></tr>` +
     `<tr><td>Target columns</td><td class="v">${found}</td></tr>` +
     `</table>` +
-    (info.missing_targets.length ? `<p class="err">Missing: ${info.missing_targets.join(", ")} (will be skipped)</p>` : "");
+    (info.missing_targets.length ? `<p class="err">Missing: ${esc(info.missing_targets.join(", "))} (will be skipped)</p>` : "") +
+    (dups.length ? `<p class="err">Repeated headers: ${esc(dups.join(", "))} (the leftmost column is used)</p>` : "");
+  const pick = $("sheetPick");
+  if (pick) pick.addEventListener("change", () => chooseSheet(pick.value));
   $("fileInfo").classList.remove("hidden");
 }
 
@@ -171,7 +193,7 @@ async function run() {
   if (!selectedProvider || !providerUsable(selectedProvider)) {
     $("progressWrap").classList.remove("hidden");
     $("progressText").innerHTML =
-      `<span class="err">No API key for ${LABELS[selectedProvider] || selectedProvider}. Paste your key above (or add it to .env).</span>`;
+      `<span class="err">No API key for ${esc(LABELS[selectedProvider] || selectedProvider)}. Paste your key above (or add it to .env).</span>`;
     return;
   }
   $("run").disabled = true;
@@ -193,6 +215,7 @@ async function run() {
     write_type: $("colType").checked,
     write_confidence: $("colConf").checked,
     write_review: $("colReview").checked,
+    sheet_name: sheetName,
   };
   const res = await fetch("/api/process", {
     method: "POST",
@@ -201,7 +224,8 @@ async function run() {
   });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
-    $("progressText").innerHTML = `<span class="err">${e.detail || "Failed to start."}</span>`;
+    const detail = typeof e.detail === "string" ? e.detail : "Failed to start.";
+    $("progressText").innerHTML = `<span class="err">${esc(detail)}</span>`;
     $("run").disabled = false;
     return;
   }
@@ -232,7 +256,7 @@ function updateProgress(job) {
 function finish(job, jobId) {
   $("run").disabled = false;
   if (job.status === "error") {
-    $("progressText").innerHTML = `<span class="err">Error: ${job.error}</span>`;
+    $("progressText").innerHTML = `<span class="err">Error: ${esc(job.error)}</span>`;
     return;
   }
   $("stats").classList.remove("hidden");
@@ -255,7 +279,7 @@ function renderReports(job) {
       `<tr><th>Row</th><th>Type</th><th>Title</th><th>Conf.</th></tr>` +
       rev.map((r) =>
         `<tr><td>${r.row}</td><td>${esc(r.type)}</td><td>${esc(r.title)}</td>` +
-        `<td class="conf-${r.confidence}">${r.confidence}</td></tr>`).join("") +
+        `<td class="conf-${esc(r.confidence)}">${esc(r.confidence)}</td></tr>`).join("") +
       `</table>`
     : `<p class="muted">No rows flagged for review.</p>`;
   const pend = Object.entries(job.pending || {}).sort((a, b) => b[1].length - a[1].length);
@@ -279,7 +303,8 @@ function switchTab(name) {
 }
 
 function esc(s) {
-  return (s || "").toString().replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  return (s ?? "").toString().replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 init();

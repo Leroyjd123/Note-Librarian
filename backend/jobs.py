@@ -1,6 +1,7 @@
 """In-memory job registry (sufficient for a single-user local tool)."""
 from __future__ import annotations
 
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Optional
@@ -14,6 +15,8 @@ class Job:
     model: str
     output_path: str
     download_name: str
+    owner: str = ""
+    created: float = field(default_factory=time.time)
     status: str = "pending"
     total_notes: int = 0
     processed_notes: int = 0
@@ -34,10 +37,18 @@ _JOBS: dict[str, Job] = {}
 
 
 def create_job(**kwargs) -> Job:
-    job = Job(id=uuid.uuid4().hex[:12], **kwargs)
+    job = Job(id=uuid.uuid4().hex, **kwargs)
     _JOBS[job.id] = job
     return job
 
 
 def get_job(job_id: str) -> Optional[Job]:
     return _JOBS.get(job_id)
+
+
+def list_jobs() -> list[Job]:
+    return list(_JOBS.values())
+
+
+def delete_job(job_id: str) -> None:
+    _JOBS.pop(job_id, None)
