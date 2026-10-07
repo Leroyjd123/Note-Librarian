@@ -23,6 +23,7 @@ def _xlsx_bytes(sheets=("Notes",)):
         ws = wb.create_sheet(name)
         ws.append(["TITLE", "NOTE"])
         ws.append(["a", "b"])
+        ws.append([None, None])  # blank row: not counted
         ws.append(["c", "d"])
     buf = io.BytesIO()
     wb.save(buf)

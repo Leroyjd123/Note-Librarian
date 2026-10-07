@@ -140,7 +140,7 @@ def _sheet_info(file_id: str, up: dict, sheet: str | None) -> UploadInfo:
         filename=up["filename"],
         sheet_name=wb.sheet_name,
         sheets=wb.list_sheets(),
-        row_count=sum(1 for r in wb.rows if r != hr),
+        row_count=sum(1 for r, cells in wb.rows.items() if r != hr and any(v.strip() for v in cells.values())),
         headers=headers,
         missing_targets=[h for h in engine.TARGET_HEADERS if h not in headers],
         duplicate_headers=wb.duplicate_headers(),

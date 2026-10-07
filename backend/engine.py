@@ -309,7 +309,11 @@ async def run_job(job, output_path: str, req) -> None:
                 continue
             ctx = _ctx(wb.rows[r], headers, req.mode)
             ctx["row"] = r
-            if req.mode == "notes" and not (ctx.get("cur_note") or "").strip():
+            has_note = bool((ctx.get("cur_note") or "").strip())
+            has_title = bool((ctx.get("cur_title") or "").strip())
+            # Notes-only needs note text; a full pass skips rows with neither title
+            # nor note (blank spacer rows), so the model can't fill them with tags.
+            if not has_note and (req.mode == "notes" or not has_title):
                 continue
             items.append(ctx)
 

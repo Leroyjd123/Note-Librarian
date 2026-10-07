@@ -11,7 +11,7 @@ class UploadInfo(BaseModel):
     filename: str
     sheet_name: str
     sheets: list[str]
-    row_count: int          # data rows (excludes header)
+    row_count: int          # non-empty data rows (excludes header)
     headers: dict[str, str]  # header name -> column letter
     missing_targets: list[str]  # of TITLE/NOTE/TAGS/COLOR not found
     duplicate_headers: list[str] = []  # header names used by more than one column

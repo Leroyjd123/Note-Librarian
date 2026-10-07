@@ -209,3 +209,19 @@ def test_declined_batch_is_split_not_fatal(tmp_path, monkeypatch):
     assert ws["D2"].value == 3 and ws["D3"].value == 4
     assert any("Row 3" in w for w in job.warnings)
     assert not any("No result returned" in w for w in job.warnings)  # not warned twice
+
+
+def test_blank_rows_are_not_sent_or_written(tmp_path, monkeypatch):
+    path = str(tmp_path / "wb.xlsx")
+    _workbook(path, [["t2", "n2", "Faith", 4], [None, None, None, None], ["t4", "", "", 4]])
+    sent = []
+
+    def reply(rows):
+        sent.extend(rows)
+        return json.dumps({"results": [{"row": r, "tags": "Stub", "color": 1} for r in rows]})
+
+    job = _run(monkeypatch, path, FakeProvider(reply), write_type=True)
+    assert job.status == "done"
+    assert sent == [2, 4]  # row 3 is blank; row 4 has a title so it is still processed
+    ws = openpyxl.load_workbook(path)["Notes"]
+    assert [c.value for c in ws[3]] == [None] * 5
